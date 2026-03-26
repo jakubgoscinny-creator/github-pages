@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Bar Góra — Model 3D</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; background: #dce8f4; font-family: 'Segoe UI', sans-serif; }
+  canvas { display: block; }
+
+  #info {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(255,255,255,0.93); color: #333;
+    padding: 16px 20px; border-radius: 12px;
+    font-size: 12.5px; line-height: 1.8;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.13); max-width: 240px;
+  }
+  #info h2 { font-size: 15px; margin-bottom: 6px; color: #111; font-weight: 700; }
+  #info .section {
+    font-weight: 700; color: #666; margin-top: 10px; margin-bottom: 2px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.7px;
+  }
+  #info .dim { color: #444; }
+  #info b { color: #222; }
+
+  #legend {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(255,255,255,0.93);
+    padding: 14px 18px; border-radius: 12px;
+    font-size: 12px; line-height: 2.1;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+  }
+  #legend h3 { font-size: 13px; margin-bottom: 4px; color: #222; font-weight: 700; }
+  .dot {
+    display: inline-block; width: 11px; height: 11px;
+    border-radius: 2px; margin-right: 7px; vertical-align: middle;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  #controls {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,0.85); color: #555;
+    padding: 8px 22px; border-radius: 8px; font-size: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1); white-space: nowrap;
+  }
+
+  #views {
+    position: absolute; bottom: 56px; right: 16px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .vbtn {
+    background: rgba(255,255,255,0.9); border: 1px solid rgba(0,0,0,0.12);
+    padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: background 0.15s;
+  }
+  .vbtn:hover { background: #fff; }
+
+  #design-toggle {
+    position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 0; background: rgba(255,255,255,0.93);
+    border-radius: 10px; padding: 4px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.13);
+  }
+  .dbtn {
+    padding: 8px 24px; border-radius: 7px; font-size: 13px; font-weight: 700;
+    cursor: pointer; border: none; background: transparent; color: #888;
+    transition: all 0.18s; letter-spacing: 0.2px;
+  }
+  .dbtn.active { background: #222; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+
+  /* ── SHOPPING BUTTON ── */
+  #btn-shop {
+    position: absolute; bottom: 56px; left: 16px;
+    background: #222; color: #fff; border: none;
+    padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 3px 14px rgba(0,0,0,0.22);
+    transition: background 0.15s; letter-spacing: 0.2px;
+  }
+  #btn-shop:hover { background: #444; }
+
+  /* ── SHOPPING PANEL ── */
+  #shop-panel {
+    display: none; position: absolute; top: 0; right: 0; bottom: 0;
+    width: 400px; background: rgba(255,255,255,0.97);
+    box-shadow: -4px 0 32px rgba(0,0,0,0.18);
+    overflow-y: auto; font-size: 12.5px; line-height: 1.6; color: #333;
+    z-index: 10;
+  }
+  #shop-panel.open { display: block; }
+  .sp-head {
+    position: sticky; top: 0; background: #fff;
+    padding: 16px 20px 12px; border-bottom: 1px solid #eee;
+    display: flex; align-items: center; justify-content: space-between;
+    z-index: 2;
+  }
+  .sp-head h2 { font-size: 15px; color: #111; margin: 0; }
+  #btn-shop-close {
+    background: none; border: none; font-size: 20px;
+    cursor: pointer; color: #888; line-height: 1; padding: 2px 6px;
+  }
+  #btn-shop-close:hover { color: #222; }
+  .sp-tabs {
+    display: flex; gap: 0; padding: 10px 20px 0;
+    border-bottom: 2px solid #eee;
+  }
+  .sp-tab {
+    padding: 7px 20px; font-size: 12px; font-weight: 700;
+    cursor: pointer; border: none; background: none;
+    color: #999; border-bottom: 2px solid transparent;
+    margin-bottom: -2px; transition: all 0.15s;
+  }
+  .sp-tab.active { color: #111; border-bottom-color: #222; }
+  .sp-body { padding: 14px 20px 24px; }
+  .sp-section {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.8px;
+    text-transform: uppercase; color: #888; margin: 16px 0 8px;
+  }
+  .sp-item {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 8px 0; border-bottom: 1px solid #f0f0f0; gap: 8px;
+  }
+  .sp-item:last-child { border-bottom: none; }
+  .sp-name { flex: 1; color: #333; }
+  .sp-name small { display: block; color: #999; font-size: 11px; margin-top: 1px; }
+  .sp-price { font-weight: 700; color: #111; white-space: nowrap; }
+  .sp-links { display: flex; gap: 5px; margin-top: 3px; flex-wrap: wrap; }
+  .sp-link {
+    font-size: 10px; padding: 2px 7px; border-radius: 4px;
+    text-decoration: none; font-weight: 600;
+  }
+  .sp-link.cast { background: #fff3e0; color: #e65100; }
+  .sp-link.alle { background: #fff8e1; color: #f57f17; }
+  .sp-link.amaz { background: #e8f5e9; color: #2e7d32; }
+  .sp-link:hover { opacity: 0.75; }
+  .sp-total {
+    margin-top: 20px; padding: 14px 16px; background: #f7f7f5;
+    border-radius: 10px; display: flex; justify-content: space-between;
+    align-items: center;
+  }
+  .sp-total span { font-size: 14px; font-weight: 800; color: #111; }
+  .sp-note {
+    font-size: 11px; color: #888; background: #fafafa;
+    border-left: 3px solid #ddd; padding: 8px 10px;
+    margin-top: 12px; border-radius: 0 6px 6px 0;
+  }
+
+  /* ── COMMENTS ── */
+  .comment-tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 10px; margin-right: 5px;
+    background: #f0f0f0; color: #666; vertical-align: middle;
+  }
+  .comment-entry {
+    padding: 10px 0; border-bottom: 1px solid #f0f0f0;
+  }
+  .comment-entry:last-child { border-bottom: none; }
+  .comment-meta {
+    font-size: 11px; color: #aaa; margin-top: 3px;
+  }
+  .comment-initials {
+    display: inline-block; width: 28px; height: 28px; line-height: 28px;
+    text-align: center; border-radius: 50%; background: #222; color: #fff;
+    font-size: 11px; font-weight: 800; margin-right: 8px; flex-shrink: 0;
+  }
+  .comment-row { display: flex; align-items: flex-start; gap: 0; }
+  .comment-body { flex: 1; font-size: 12.5px; color: #333; }
+  .comment-form {
+    margin-top: 18px; padding: 14px; background: #f7f7f5;
+    border-radius: 10px;
+  }
+  .comment-form label {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.6px;
+    text-transform: uppercase; color: #888; display: block; margin-bottom: 5px;
+  }
+  .comment-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .comment-input-row input[type=text] {
+    flex: 1; padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px;
+    font-size: 12px; outline: none;
+  }
+  .comment-input-row input[type=text]:focus { border-color: #aaa; }
+  .initials-input { width: 54px !important; flex: none !important; text-align: center; font-weight: 700; text-transform: uppercase; }
+  .comment-text-input { width: 100%; padding: 7px 10px; border: 1px solid #ddd;
+    border-radius: 6px; font-size: 12px; resize: none; outline: none; font-family: inherit; }
+  .comment-text-input:focus { border-color: #aaa; }
+  .tag-select {
+    width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;
+    font-size: 12px; outline: none; margin-bottom: 8px; background: #fff;
+  }
+  .btn-submit-comment {
+    width: 100%; padding: 9px; background: #222; color: #fff; border: none;
+    border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-submit-comment:hover:not(:disabled) { background: #444; }
+  .btn-submit-comment:disabled { background: #ccc; cursor: default; }
+  .comment-status {
+    font-size: 11px; text-align: center; margin-top: 8px; min-height: 16px;
+    color: #666;
+  }
+  .comment-status.ok { color: #2e7d32; font-weight: 700; }
+  .comment-status.err { color: #c62828; }
+  #comment-count {
+    display: inline-block; background: #222; color: #fff;
+    border-radius: 10px; font-size: 10px; font-weight: 800;
+    padding: 1px 7px; margin-left: 6px; vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div id="info">
+  <h2>Bar Góra — Model 3D</h2>
+
+  <div class="section">Duży pokój (A-frame)</div>
+  <div class="dim">Szerokość podłogi: <b>292 cm</b></div>
+  <div class="dim">Długość: <b>347 cm</b></div>
+  <div class="dim">Wysokość szczytu: <b>293 cm</b></div>
+  <div class="dim">Kąt nachylenia ścian: <b>60°</b></div>
+
+  <div class="section">Mały pokój (schody)</div>
+  <div class="dim">Głębokość: <b>225 cm</b></div>
+  <div class="dim">Schody: <b>68 cm</b> szer.</div>
+  <div class="dim">Odstęp schody–ściana: <b>50 cm</b></div>
+
+  <div id="info-a">
+    <div class="section">Projekt A — Strefa Zen</div>
+    <div class="dim">Mata piankowa: <b>292 × 347 cm × 22 cm</b></div>
+    <div class="dim">Poduszki lounge + wałki</div>
+    <div class="dim">Kufer na kołdry</div>
+  </div>
+  <div id="info-b" style="display:none">
+    <div class="section">Projekt B — Hamaki &amp; Relaks</div>
+    <div class="dim">2× hamak tkany (duży pokój)</div>
+    <div class="dim">Poduszki podłogowe</div>
+    <div class="dim">Fotel brazylijki (mały pokój)</div>
+    <div class="dim">Kufer na kołdry</div>
+  </div>
+</div>
+
+<div id="legend">
+  <h3>Legenda</h3>
+  <div><span class="dot" style="background:#f8f6f0;"></span> Ściany i sufit (białe)</div>
+  <div><span class="dot" style="background:#b4b2ac;"></span> Podłoga (szara)</div>
+  <div id="leg-a">
+    <div><span class="dot" style="background:#f2efe0;"></span> Mata piankowa</div>
+    <div><span class="dot" style="background:#c9b99a;"></span> Poduszki lounge + wałki</div>
+  </div>
+  <div id="leg-b" style="display:none">
+    <div><span class="dot" style="background:#c8a870;"></span> Hamaki tkane</div>
+    <div><span class="dot" style="background:#c8a878;"></span> Fotel brazylijki</div>
+    <div><span class="dot" style="background:#b8c4a8;"></span> Poduszki (B)</div>
+  </div>
+  <div><span class="dot" style="background:#7a5a38;"></span> Kufer na kołdry</div>
+  <div><span class="dot" style="background:#c8ccd4;"></span> Schody</div>
+  <div><span class="dot" style="background:#88bbdd; opacity:0.7"></span> Okno</div>
+</div>
+
+<div id="design-toggle">
+  <button class="dbtn active" id="btn-da">🛏 Projekt A</button>
+  <button class="dbtn" id="btn-db">🪢 Projekt B</button>
+</div>
+
+<div id="views">
+  <button class="vbtn" id="btn-overview">Widok ogólny</button>
+  <button class="vbtn" id="btn-duzy">Duży pokój</button>
+  <button class="vbtn" id="btn-schody">Schody</button>
+  <button class="vbtn" id="btn-top">Z góry</button>
+</div>
+
+<button id="btn-shop">🛒 Lista zakupowa</button>
+
+<div id="shop-panel">
+  <div class="sp-head">
+    <h2>Lista zakupowa</h2>
+    <button id="btn-shop-close">✕</button>
+  </div>
+  <div class="sp-tabs">
+    <button class="sp-tab active" data-tab="a">🛏 Projekt A</button>
+    <button class="sp-tab" data-tab="b">🪢 Projekt B</button>
+    <button class="sp-tab" data-tab="wspolne">Wspólne</button>
+    <button class="sp-tab" data-tab="komentarze">💬 Komentarze<span id="comment-count" style="display:none">0</span></button>
+  </div>
+
+  <!-- PROJEKT A -->
+  <div class="sp-body" id="sp-a">
+    <div class="sp-section">Projekt A — Strefa Zen</div>
+
+    <div class="sp-item">
+      <div class="sp-name">Mata piankowa T35 na wymiar<small>292×347×20 cm — zamów u producenta z wymiarami</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=pianka+poliuretanowa+na+wymiar+20cm" target="_blank">Allegro</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=topper+piankowy+200x200+20cm" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~450 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">Pokrowiec na matę<small>2× prześcieradło elastyczne 200×200 cm</small>
+        <div class="sp-links">
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=prze%C5%9Bcieradlo+elastyczne+200x200" target="_blank">Amazon</a>
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=prze%C5%9Bcieradlo+elastyczne+200x200+jersey" target="_blank">Allegro</a>
+        </div>
+      </div>
+      <div class="sp-price">~140 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">6× poduszka lounge 70×70 cm<small>bawełna, beż/taupe — szukaj zestawów 3-pak</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=poduszka+pod%C5%82ogowa+du%C5%BCa+70x70+bawelna" target="_blank">Allegro</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=poduszka+pod%C5%82ogowa+70x70+naturalna" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~480 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">3× poduszka oparciowa 80×65 cm<small>przy tylnej ścianie, styl zazen</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=poduszka+oparciowa+du%C5%BCa+80cm+pod%C5%82oga" target="_blank">Allegro</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=poduszka+oparciowa+pod%C5%82oga+80cm" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~270 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">2× wałek dekoracyjny bolster 60 cm<small>okrągły, bawełniany</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=wa%C5%82ek+dekoracyjny+bolster+pod%C5%82oga+60cm" target="_blank">Allegro</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=wa%C5%82ek+dekoracyjny+bolster+pod%C5%82oga" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~110 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">Kufer drewniany na kołdry ~120 cm<small>sosnowy, z pokrywą — wspólny dla obu projektów</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=kufer+drewniany+na+ko%C5%82dry+120cm" target="_blank">Allegro ★</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=kufer+drewniany+skrzynia+na+koldr%C4%99" target="_blank">Amazon</a>
+          <a class="sp-link cast" href="https://www.castorama.pl/search?q=skrzynia+keter" target="_blank">Castorama</a>
+        </div>
+      </div>
+      <div class="sp-price">~350 zł</div>
+    </div>
+
+    <div class="sp-total">
+      <span>💰 Suma Projekt A</span>
+      <span>~1 800 zł</span>
+    </div>
+    <div class="sp-note">★ Mata piankowa: podaj wymiary 292×347 cm przy zamówieniu, gęstość T35 (35 kg/m³)</div>
+  </div>
+
+  <!-- PROJEKT B -->
+  <div class="sp-body" id="sp-b" style="display:none">
+    <div class="sp-section">Projekt B — Hamaki &amp; Fotel Brazylijki</div>
+
+    <div class="sp-item">
+      <div class="sp-name">2× hamak brazylijski tkany bawełniany<small>bez drążków, ~200×90 cm — "hamak siodełkowy tkany"</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=hamak+brazylijski+tkany+bawelniany+bez+dr%C4%85%C5%BCk%C3%B3w" target="_blank">Allegro ★</a>
+          <a class="sp-link cast" href="https://www.castorama.pl/search?q=hamak+ogrodowy+bawelniany" target="_blank">Castorama</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=hamak+brazylijski+tkany+bez+dra%C5%BCk%C3%B3w" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~260 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">4× śruba oczkowa M10 + karabińczyki<small>kotwice do krokwi — wkręć w krokwie, min. 60 mm głębokości</small>
+        <div class="sp-links">
+          <a class="sp-link cast" href="https://www.castorama.pl/search?q=%C5%9Bruba+oczkowa+m10+ocynkowana" target="_blank">Castorama ★</a>
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=uchwyt+do+hamaka+zestaw+stalowy+150kg" target="_blank">Allegro</a>
+        </div>
+      </div>
+      <div class="sp-price">~100 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">Fotel brazylijki wiszący tkany<small>bawełna, bez stojaka — montaż na hak w krokwi kalenicy</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=fotel+brazylijki+wiszacy+tkanina+bawelna" target="_blank">Allegro ★</a>
+          <a class="sp-link cast" href="https://www.castorama.pl/search?q=fotel+wiszacy+ogrodowy" target="_blank">Castorama</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=fotel+wiszacy+hamakowy+tkany+brazylijski" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~320 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">Hak sufitowy M10 + obrotnica 360°<small>nośność min. 150 kg — do kalenicy małego pokoju</small>
+        <div class="sp-links">
+          <a class="sp-link cast" href="https://www.castorama.pl/search?q=hak+sufitowy+obrotnica+360" target="_blank">Castorama ★</a>
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=obrotnica+360+fotel+wiszacy+M10+150kg" target="_blank">Allegro</a>
+        </div>
+      </div>
+      <div class="sp-price">~60 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">10× poduszka podłogowa 65×65 cm<small>oliwkowa/zielona boho — szukaj zestawów 3-pak</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=poduszka+pod%C5%82ogowa+65x65+oliwkowa+boho" target="_blank">Allegro ★</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=poduszka+pod%C5%82ogowa+lounge+65cm+bawelna" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~700 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">Zestaw poduszek do fotela<small>siedzenie + oparcie do fotela wiszącego</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=poduszki+do+fotela+wiszacego+brazylijki+zestaw" target="_blank">Allegro ★</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=poduszka+fotel+wiszacy+hamakowy+wymiana" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~110 zł</div>
+    </div>
+
+    <div class="sp-item">
+      <div class="sp-name">Kufer drewniany na kołdry ~120 cm<small>sosnowy, z pokrywą — wspólny dla obu projektów</small>
+        <div class="sp-links">
+          <a class="sp-link alle" href="https://allegro.pl/listing?string=kufer+drewniany+na+ko%C5%82dry+120cm" target="_blank">Allegro ★</a>
+          <a class="sp-link amaz" href="https://www.amazon.pl/s?k=kufer+drewniany+skrzynia+na+koldr%C4%99" target="_blank">Amazon</a>
+        </div>
+      </div>
+      <div class="sp-price">~350 zł</div>
+    </div>
+
+    <div class="sp-total">
+      <span>💰 Suma Projekt B</span>
+      <span>~1 900 zł</span>
+    </div>
+    <div class="sp-note">⚠️ Kotwy hamaków i hak fotela muszą być wkręcone w krokwie drewniane (co ~63 cm), nie w deskowanie!</div>
+  </div>
+
+  <!-- WSPÓLNE -->
+  <div class="sp-body" id="sp-wspolne" style="display:none">
+    <div class="sp-section">Porównanie projektów</div>
+    <div class="sp-item"><div class="sp-name">Projekt A — Strefa Zen</div><div class="sp-price">~1 800 zł</div></div>
+    <div class="sp-item"><div class="sp-name">Projekt B — Hamaki &amp; Relaks</div><div class="sp-price">~1 900 zł</div></div>
+    <div class="sp-section">Różnica</div>
+    <div class="sp-item"><div class="sp-name">Projekty zbliżone cenowo</div><div class="sp-price">~100 zł</div></div>
+    <div class="sp-section">Sklep główny</div>
+    <div class="sp-item">
+      <div class="sp-name">Castorama Bydgoszcz Szubińska<small>śruby oczkowe, karabińczyki, haki — elementy montażowe</small>
+        <div class="sp-links">
+          <a class="sp-link cast" href="https://www.castorama.pl/sklepy/bydgoszcz-szubinska.html" target="_blank">Castorama ↗</a>
+        </div>
+      </div>
+    </div>
+    <div class="sp-note">★ = rekomendowana opcja dla danej pozycji<br>Większość zakupów (poduszki, hamaki, kufer) najlepsza na Allegro lub Amazon. Castorama przydatna dla elementów montażowych (śruby M10, karabińczyki, haki).</div>
+  </div>
+</div>
+
+<div id="controls">LPM + przeciąganie = obrót &nbsp;|&nbsp; Scroll = zoom &nbsp;|&nbsp; PPM = przesunięcie</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ─── SCENE SETUP ─────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xd4e4f0);
+scene.fog = new THREE.Fog(0xd4e4f0, 18, 40);
+
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.05, 60);
+camera.position.set(5.5, 4.0, 9.0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.target.set(1.46, 1.1, 2.8);
+controls.minDistance = 0.5;
+controls.maxDistance = 20;
+
+// ─── LIGHTING ────────────────────────────────────────────────────────────
+const ambLight = new THREE.AmbientLight(0xffffff, 0.60);
+scene.add(ambLight);
+
+const sun = new THREE.DirectionalLight(0xfff8f0, 1.15);
+sun.position.set(5, 9, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -9; sun.shadow.camera.right = 9;
+sun.shadow.camera.top = 8;  sun.shadow.camera.bottom = -4;
+sun.shadow.camera.far = 30; sun.shadow.bias = -0.001;
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0xe0ecff, 0.30);
+fill.position.set(-4, 5, -4);
+scene.add(fill);
+
+const winLight = new THREE.PointLight(0xfff5e0, 0.8, 6, 1.5);
+winLight.position.set(1.46, 1.8, 0.3);
+scene.add(winLight);
+
+// ─── DIMENSIONS ──────────────────────────────────────────────────────────
+const W  = 2.92;   // floor width (both rooms)
+const L1 = 3.47;   // big room length   (z: 0 → L1)
+const L2 = 2.25;   // stair room length (z: L1 → L1+L2)
+const LT = L1 + L2; // total 5.72 m
+const H  = 2.93;   // ridge height
+const CX = W / 2;  // ridge center x = 1.46
+
+const DW = 0.85;          // doorway width
+const DH = 1.90;          // doorway height
+const DX = CX - DW / 2;  // doorway left edge (centered)
+
+const SW  = 0.68; // stair tread width (x-dir)
+const SG  = 0.50; // gap stairs→left wall
+const SD  = 1.40; // stair run depth (z-dir of the opening)
+const STEP_COUNT = 12;
+const STEP_RISE  = 0.22;
+const STEP_RUN   = SD / STEP_COUNT;
+
+// ─── MATERIALS ───────────────────────────────────────────────────────────
+const wallMat  = new THREE.MeshStandardMaterial({ color: 0xf8f6f0, roughness: 0.88, side: THREE.DoubleSide });
+const floorMat = new THREE.MeshStandardMaterial({ color: 0xb4b2ac, roughness: 0.92, metalness: 0.02 });
+const foamMat  = new THREE.MeshStandardMaterial({ color: 0xecead6, roughness: 0.96 });
+const chestMat = new THREE.MeshStandardMaterial({ color: 0x7a5a38, roughness: 0.82, metalness: 0.05 });
+const lidMat   = new THREE.MeshStandardMaterial({ color: 0x8c6a48, roughness: 0.75 });
+const glassMat = new THREE.MeshPhysicalMaterial({
+  color: 0x90c0e0, roughness: 0.05, metalness: 0,
+  transmission: 0.75, transparent: true, opacity: 0.40, side: THREE.DoubleSide
+});
+const stairMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd4, roughness: 0.88 });
+const hwMat    = new THREE.MeshStandardMaterial({ color: 0x949080, metalness: 0.85, roughness: 0.25 });
+const darkMat  = new THREE.MeshStandardMaterial({ color: 0x111114, roughness: 1 });
+
+const cushColors = [0xe2c4a0, 0xd4b090, 0xc89888, 0xbca080, 0xd8c0a8, 0xe6d4b8];
+
+// ─── GEOMETRY HELPERS ────────────────────────────────────────────────────
+
+// Add a simple box
+function box(w, h, d, mat, x, y, z, ry = 0) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.rotation.y = ry;
+  m.castShadow = true; m.receiveShadow = true;
+  scene.add(m); return m;
+}
+
+// Add a horizontal floor plane
+function floorPlane(w, d, mat, cx, z_center) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(cx, 0, z_center);
+  m.receiveShadow = true; scene.add(m); return m;
+}
+
+// Add a ShapeGeometry wall (in XY plane, placed at given z)
+function shapeWall(shape, z, mat) {
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(shape, 4), mat);
+  m.position.z = z;
+  m.receiveShadow = true; m.castShadow = true;
+  scene.add(m); return m;
+}
+
+// Build a quad from 4 world-space corners (for slanted surfaces)
+function slopedFace(p0, p1, p2, p3, mat) {
+  const g = new THREE.BufferGeometry();
+  const verts = new Float32Array([
+    ...p0, ...p1, ...p2,
+    ...p0, ...p2, ...p3,
+  ]);
+  g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, mat);
+  m.receiveShadow = true; m.castShadow = true;
+  scene.add(m); return m;
+}
+
+// Tube between two points
+function tube(p0, p1, r, mat) {
+  const curve = new THREE.LineCurve3(new THREE.Vector3(...p0), new THREE.Vector3(...p1));
+  const g = new THREE.TubeGeometry(curve, 1, r, 6, false);
+  const m = new THREE.Mesh(g, mat);
+  m.castShadow = true; scene.add(m); return m;
+}
+
+// ─── DESIGN GROUPS ───────────────────────────────────────────────────────
+// Temporarily redirect scene.add into a group
+let _activeGroup = null;
+const _origAdd = scene.add.bind(scene);
+function inGroup(group, fn) {
+  _activeGroup = group;
+  const proxy = (...args) => { args.forEach(o => group.add(o)); };
+  scene.add = proxy;
+  fn();
+  scene.add = _origAdd;
+  _activeGroup = null;
+}
+
+const groupA = new THREE.Group(); scene.add(groupA);
+const groupB = new THREE.Group(); scene.add(groupB);
+groupB.visible = false;
+
+// Sprite label
+function label(text, x, y, z) {
+  const c = document.createElement('canvas');
+  c.width = 300; c.height = 68;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'rgba(20,20,30,0.72)';
+  ctx.beginPath(); ctx.roundRect(0,0,300,68,10); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 26px Segoe UI';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 150, 34);
+  const tex = new THREE.CanvasTexture(c);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  sp.position.set(x, y, z);
+  sp.scale.set(0.9, 0.22, 1);
+  scene.add(sp);
+}
+
+// ─── A-FRAME STRUCTURE ───────────────────────────────────────────────────
+
+// Full combined floor
+floorPlane(W, LT, floorMat, CX, LT / 2);
+
+// Left slanted wall/roof — full building length
+// p0=(0,0,0), p1=(0,0,LT), p2=(CX,H,LT), p3=(CX,H,0)
+slopedFace([0,0,0], [0,0,LT], [CX,H,LT], [CX,H,0], wallMat);
+
+// Right slanted wall/roof — full building length
+slopedFace([W,0,0], [CX,H,0], [CX,H,LT], [W,0,LT], wallMat);
+
+// ─── FRONT END WALL (z=0) — triangle with trapezoid window ───────────────
+{
+  const s = new THREE.Shape();
+  s.moveTo(0, 0); s.lineTo(W, 0); s.lineTo(CX, H); s.closePath();
+
+  // Trapezoidal window opening (like in photos)
+  const win = new THREE.Path();
+  win.moveTo(CX - 0.52, 0.88);
+  win.lineTo(CX + 0.52, 0.88);
+  win.lineTo(CX + 0.16, 2.15);
+  win.lineTo(CX - 0.16, 2.15);
+  win.closePath();
+  s.holes.push(win);
+  shapeWall(s, 0, wallMat);
+
+  // Window glass pane
+  const wg = new THREE.Shape();
+  wg.moveTo(CX - 0.52, 0.88);
+  wg.lineTo(CX + 0.52, 0.88);
+  wg.lineTo(CX + 0.16, 2.15);
+  wg.lineTo(CX - 0.16, 2.15);
+  wg.closePath();
+  const glassM = new THREE.Mesh(new THREE.ShapeGeometry(wg, 3), glassMat);
+  glassM.position.z = 0.01;
+  scene.add(glassM);
+
+  // Window frame (thin box around opening)
+  const frameGeo = new THREE.BoxGeometry(1.10, 0.06, 0.06);
+  box(1.10, 0.06, 0.06, new THREE.MeshStandardMaterial({color:0xf0ece2, roughness:0.5}), CX, 0.87, 0.03);
+}
+
+// ─── BACK END WALL (z=LT) — solid triangle ───────────────────────────────
+{
+  const s = new THREE.Shape();
+  s.moveTo(0, 0); s.lineTo(W, 0); s.lineTo(CX, H); s.closePath();
+  shapeWall(s, LT, wallMat);
+}
+
+// ─── INTERIOR PARTITION WALL (z=L1) — triangle with centered doorway ─────
+{
+  const s = new THREE.Shape();
+  s.moveTo(0, 0); s.lineTo(W, 0); s.lineTo(CX, H); s.closePath();
+
+  // Door hole
+  const door = new THREE.Path();
+  door.moveTo(DX, 0);
+  door.lineTo(DX + DW, 0);
+  door.lineTo(DX + DW, DH);
+  door.lineTo(DX, DH);
+  door.closePath();
+  s.holes.push(door);
+  shapeWall(s, L1, wallMat);
+
+  // Door frame
+  const fMat = new THREE.MeshStandardMaterial({color: 0xf0ece0, roughness:0.6});
+  box(DW + 0.08, 0.06, 0.08, fMat, CX, DH + 0.03, L1); // top
+  box(0.06, DH, 0.08, fMat, DX - 0.03, DH/2, L1);       // left
+  box(0.06, DH, 0.08, fMat, DX + DW + 0.03, DH/2, L1);  // right
+}
+
+// ─── RIDGE BEAM (kalenica) ────────────────────────────────────────────────
+{
+  const ridgeMat = new THREE.MeshStandardMaterial({color:0xf0ece0, roughness:0.7});
+  tube([CX, H + 0.02, 0], [CX, H + 0.02, LT], 0.045, ridgeMat);
+}
+
+// ─── RAFTERS (krokwie) ───────────────────────────────────────────────────
+{
+  const rafterMat = new THREE.MeshStandardMaterial({color:0xf4f0e8, roughness:0.8});
+  const RAFTER_N = 9; // 8 bays
+  for (let i = 0; i <= RAFTER_N; i++) {
+    const z = (i / RAFTER_N) * LT;
+    tube([0, 0, z], [CX, H, z], 0.025, rafterMat);
+    tube([W, 0, z], [CX, H, z], 0.025, rafterMat);
+  }
+  // Collar ties (poziome belki spinające)
+  const TIE_H = 1.5;
+  for (let i = 1; i <= RAFTER_N - 1; i++) {
+    if (i % 2 === 0) {
+      const z = (i / RAFTER_N) * LT;
+      const xAtTie = TIE_H * CX / H;
+      const tieX0 = xAtTie;
+      const tieX1 = W - xAtTie;
+      tube([tieX0, TIE_H, z], [tieX1, TIE_H, z], 0.02, rafterMat);
+    }
+  }
+  // Purlin (płatew boczna) — horizontal beam along each slope
+  const PURLIN_T = 0.5; // fraction along rafter
+  const px = CX * PURLIN_T;
+  const py = H * PURLIN_T;
+  tube([px,     py, 0], [px,     py, LT], 0.02, rafterMat);
+  tube([W - px, py, 0], [W - px, py, LT], 0.02, rafterMat);
+}
+
+// ─── PROJEKT A — STREFA ZEN ───────────────────────────────────────────────
+inGroup(groupA, () => {
+// ─── FOAM MAT — pokrywa całą podłogę dużego pokoju ───────────────────────
+{
+  const FW = W;    // pełna szerokość podłogi 2.92 m
+  const FL = L1;   // pełna długość pokoju 3.47 m
+  const FH = 0.22; // grubość 22 cm
+  const fz = FL / 2;
+  box(FW, FH, FL, foamMat, CX, FH / 2, fz);
+
+  // Miękka górna powierzchnia (lekko jaśniejsza)
+  const topMat = new THREE.MeshStandardMaterial({color:0xf2efe0, roughness:0.97});
+  box(FW, 0.008, FL, topMat, CX, FH + 0.004, fz);
+
+  // Obszywka — boczne lamówki pianki (ciemniejszy pasek na krawędziach)
+  const seamMat = new THREE.MeshStandardMaterial({color:0xd8d4c4, roughness:0.85});
+  const seamH = 0.018;
+  // przednia i tylna krawędź
+  box(FW, seamH, 0.022, seamMat, CX, FH - seamH/2, 0.011);
+  box(FW, seamH, 0.022, seamMat, CX, FH - seamH/2, FL - 0.011);
+  // boczne krawędzie
+  box(0.022, seamH, FL, seamMat, 0.011, FH - seamH/2, fz);
+  box(0.022, seamH, FL, seamMat, W - 0.011, FH - seamH/2, fz);
+
+  // ─── PODUSZKI DUŻE I FAJNE ─────────────────────────────────────────────
+  // Poduszki podłogowe (japoński styl zazen / lounge)
+  const FT = FH; // top of foam = 0.22
+
+  // Definicje: [x, z, rotY, w, h, d, color, type]
+  // type: 'square'=kwadrat, 'bolster'=wałek, 'round'=okrągła
+  const cushions = [
+    // Rząd 1 — przy przedniej ścianie, duże kwadraty
+    { x: 0.60, z: 0.42, ry: 0.08,  w: 0.70, h: 0.28, d: 0.70, color: 0xc9b99a },
+    { x: 1.46, z: 0.38, ry: -0.05, w: 0.72, h: 0.30, d: 0.72, color: 0xb8a88e },
+    { x: 2.30, z: 0.44, ry: 0.10,  w: 0.68, h: 0.27, d: 0.68, color: 0xd4c4a8 },
+
+    // Rząd 2 — środkowe, luźno rozrzucone
+    { x: 0.50, z: 1.20, ry: -0.15, w: 0.75, h: 0.32, d: 0.75, color: 0xa89880 },
+    { x: 1.80, z: 1.10, ry: 0.12,  w: 0.78, h: 0.34, d: 0.78, color: 0xc0b098 },
+
+    // Rząd 3 — duże poduszki oparciowe przy ścianie tylnej
+    { x: 0.55, z: 2.80, ry: 0.06,  w: 0.65, h: 0.60, d: 0.28, color: 0xb0a890, wall: true },
+    { x: 1.46, z: 2.85, ry: 0.00,  w: 0.80, h: 0.65, d: 0.28, color: 0xa09880, wall: true },
+    { x: 2.38, z: 2.80, ry: -0.06, w: 0.65, h: 0.60, d: 0.28, color: 0xbcac98, wall: true },
+
+    // Wałki dekoracyjne (bolsters)
+    { x: 1.05, z: 0.68, ry: Math.PI/2, w: 0.22, h: 0.22, d: 0.62, color: 0xd8c8b0, round: true },
+    { x: 1.90, z: 0.72, ry: Math.PI/2, w: 0.22, h: 0.22, d: 0.60, color: 0xc8b8a0, round: true },
+  ];
+
+  cushions.forEach(c => {
+    const mat = new THREE.MeshStandardMaterial({ color: c.color, roughness: 0.90 });
+    const py = c.wall ? FT + c.h/2 : FT + c.h/2;
+    const pz = c.wall ? c.z - c.d/2 : c.z;
+
+    if (c.round) {
+      // Wałek — użyj CylinderGeometry
+      const geo = new THREE.CylinderGeometry(c.h/2, c.h/2, c.d, 16);
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(c.x, FT + c.h/2, c.z);
+      m.rotation.z = Math.PI/2;
+      m.rotation.y = c.ry;
+      m.castShadow = true; m.receiveShadow = true;
+      scene.add(m);
+      // Zaślepki na końcach wałka
+      const capMat = new THREE.MeshStandardMaterial({ color: c.color - 0x101010, roughness: 0.85 });
+      const capGeo = new THREE.CircleGeometry(c.h/2, 16);
+      [-c.d/2, c.d/2].forEach(dx => {
+        const cap = new THREE.Mesh(capGeo, capMat);
+        cap.position.set(c.x + dx * Math.cos(c.ry), FT + c.h/2, c.z - dx * Math.sin(c.ry));
+        cap.rotation.set(0, c.ry + Math.PI/2, 0);
+        scene.add(cap);
+      });
+    } else {
+      // Poduszka kwadratowa / oparciowa
+      const m = box(c.w, c.h, c.d, mat, c.x, py, pz, c.ry);
+
+      // Fajny szew przez środek poduszki (dekoracyjny)
+      const seamLineMat = new THREE.MeshStandardMaterial({ color: c.color - 0x181818, roughness: 0.95 });
+      if (!c.wall) {
+        // Szew poziomy na górze
+        box(c.w - 0.04, 0.012, 0.018, seamLineMat, c.x, py + c.h/2 + 0.006, pz, c.ry);
+        box(0.018, 0.012, c.d - 0.04, seamLineMat, c.x, py + c.h/2 + 0.006, pz, c.ry);
+        // Lekkie wypuklenie środka (tufting effect)
+        const tufMat = new THREE.MeshStandardMaterial({ color: c.color, roughness: 0.92 });
+        box(c.w * 0.55, c.h * 0.08, c.d * 0.55, tufMat, c.x, py + c.h/2 + 0.01, pz, c.ry);
+      } else {
+        // Szew pionowy na poduszce oparciowej
+        box(0.018, c.h - 0.04, 0.012, seamLineMat, c.x, py, pz + c.d/2 + 0.006, c.ry);
+      }
+    }
+  });
+}
+
+// ─── KUFER NA KOŁDRY ─────────────────────────────────────────────────────
+{
+  // Placed against right slanted wall, rear of big room, near partition
+  const KW = 1.20; // width
+  const KH = 0.55; // height (body)
+  const KD = 0.58; // depth
+  const kx = CX + 0.70; // toward right wall
+  const kz = L1 - 0.55; // near partition wall
+
+  // Body
+  box(KW, KH, KD, chestMat, kx, KH / 2, kz);
+  // Lid (slightly lighter)
+  box(KW + 0.03, 0.10, KD + 0.03, lidMat, kx, KH + 0.05, kz);
+
+  // Metal hardware
+  // Front center handle bar
+  box(0.18, 0.03, 0.025, hwMat, kx, KH * 0.45, kz + KD/2 + 0.01);
+  // Corner reinforcements (4 on front)
+  [[-KW/2+0.04, KH*0.25], [KW/2-0.04, KH*0.25],
+   [-KW/2+0.04, KH*0.75], [KW/2-0.04, KH*0.75]].forEach(([dx, dy]) => {
+    box(0.03, 0.06, 0.02, hwMat, kx+dx, dy, kz+KD/2+0.01);
+  });
+  // Hinge (top back)
+  box(KW * 0.7, 0.03, 0.03, hwMat, kx, KH + 0.01, kz - KD/2 + 0.02);
+}
+}); // end inGroup(groupA)
+
+// ─── STAIRCASE ───────────────────────────────────────────────────────────
+{
+  // Dark void below staircase opening
+  const voidGeo = new THREE.PlaneGeometry(SW + 0.04, SD + 0.04);
+  const voidM = new THREE.Mesh(voidGeo, darkMat);
+  voidM.rotation.x = -Math.PI / 2;
+  voidM.position.set(SG + SW/2, -0.02, L1 + SD/2);
+  scene.add(voidM);
+
+  // Steps — going down
+  for (let i = 0; i < STEP_COUNT; i++) {
+    const stepH = (i + 1) * STEP_RISE;
+    const stepZ = L1 + i * STEP_RUN;
+    // Tread
+    box(SW, 0.04, STEP_RUN + 0.01, stairMat, SG + SW/2, -stepH + STEP_RISE*0.5, stepZ + STEP_RUN/2);
+    // Riser (front face)
+    if (i < STEP_COUNT - 1) {
+      box(SW, STEP_RISE - 0.04, 0.025, stairMat, SG + SW/2, -stepH + STEP_RISE*0.5, stepZ);
+    }
+  }
+
+  // Stair side walls (stringers)
+  const STAIR_TOTAL_H = STEP_COUNT * STEP_RISE;
+  const slopeMat = new THREE.MeshStandardMaterial({color: 0xd0d4dc, roughness: 0.85});
+
+  // Left stringer (x = SG)
+  {
+    const g = new THREE.BufferGeometry();
+    const v = new Float32Array([
+      SG, 0, L1,
+      SG, 0, L1 + SD,
+      SG, -STAIR_TOTAL_H, L1 + SD,
+      SG, 0, L1,
+      SG, -STAIR_TOTAL_H, L1 + SD,
+      SG, -STAIR_TOTAL_H + 0.2, L1,
+    ]);
+    g.setAttribute('position', new THREE.BufferAttribute(v, 3));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, slopeMat);
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+  // Right stringer (x = SG + SW)
+  {
+    const xr = SG + SW;
+    const g = new THREE.BufferGeometry();
+    const v = new Float32Array([
+      xr, 0, L1,
+      xr, -STAIR_TOTAL_H + 0.2, L1,
+      xr, -STAIR_TOTAL_H, L1 + SD,
+      xr, 0, L1,
+      xr, -STAIR_TOTAL_H, L1 + SD,
+      xr, 0, L1 + SD,
+    ]);
+    g.setAttribute('position', new THREE.BufferAttribute(v, 3));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, slopeMat);
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+
+  // Handrail post at top of stairs
+  const railMat = new THREE.MeshStandardMaterial({color:0xd8d4cc, roughness:0.6, metalness:0.15});
+  box(0.04, 1.0, 0.04, railMat, SG - 0.04, 0.50, L1 + 0.04);
+  box(0.04, 1.0, 0.04, railMat, SG + SW + 0.04, 0.50, L1 + 0.04);
+  // Handrail bar
+  tube([SG - 0.04, 0.95, L1 + 0.04], [SG - 0.04, 0.95 - STAIR_TOTAL_H * 0.6, L1 + SD * 0.7], 0.018, railMat);
+  tube([SG + SW + 0.04, 0.95, L1 + 0.04], [SG + SW + 0.04, 0.95 - STAIR_TOTAL_H * 0.6, L1 + SD * 0.7], 0.018, railMat);
+}
+
+// ─── PROJEKT B — HAMAKI & FOTEL BRAZYLIJKI ────────────────────────────────
+inGroup(groupB, () => {
+
+  // ── KUFER (shared, same position) ──
+  {
+    const KW=1.20, KH=0.55, KD=0.58, kx=CX+0.70, kz=L1-0.55;
+    box(KW, KH, KD, chestMat, kx, KH/2, kz);
+    box(KW+0.03, 0.10, KD+0.03, lidMat, kx, KH+0.05, kz);
+    box(0.18, 0.03, 0.025, hwMat, kx, KH*0.45, kz+KD/2+0.01);
+    box(KW*0.7, 0.03, 0.03, hwMat, kx, KH+0.01, kz-KD/2+0.02);
+  }
+
+  // ── HAMMOCK helper ──
+  function createHammock(zCenter, zWidth, color) {
+    const leftX  = CX * (1.42 / H);   // ~0.708 m (on slanted wall)
+    const rightX = W - leftX;           // ~2.212 m
+    const mountH = 1.42;
+    const sagY   = 0.82;
+
+    // Catenary curve across the room width
+    const curvePts = [
+      new THREE.Vector3(leftX,  mountH,    zCenter),
+      new THREE.Vector3(leftX  + 0.30, 1.12, zCenter),
+      new THREE.Vector3(CX,    sagY,       zCenter),
+      new THREE.Vector3(rightX - 0.30, 1.12, zCenter),
+      new THREE.Vector3(rightX, mountH,    zCenter),
+    ];
+    const curve = new THREE.CatmullRomCurve3(curvePts);
+
+    // Woven fabric body mesh
+    const SEG_L = 28, SEG_W = 8;
+    const verts = [], idx = [];
+    for (let l = 0; l <= SEG_L; l++) {
+      const pt = curve.getPoint(l / SEG_L);
+      for (let w = 0; w <= SEG_W; w++) {
+        verts.push(pt.x, pt.y, zCenter + (w/SEG_W - 0.5)*zWidth);
+      }
+    }
+    for (let l = 0; l < SEG_L; l++) {
+      for (let w = 0; w < SEG_W; w++) {
+        const a = l*(SEG_W+1)+w, b=a+1, c=a+SEG_W+1, d=c+1;
+        idx.push(a,c,b, b,c,d);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const fabMat = new THREE.MeshStandardMaterial({color, roughness:0.90, side:THREE.DoubleSide});
+    const fab = new THREE.Mesh(g, fabMat);
+    fab.castShadow = true; fab.receiveShadow = true;
+    scene.add(fab);
+
+    // Edge ropes (along both long sides)
+    const ropeMat = new THREE.MeshStandardMaterial({color:0xc4b898, roughness:0.88});
+    const half = zWidth / 2;
+    [-half, half].forEach(zo => {
+      const ePts = [];
+      for (let l = 0; l <= SEG_L; l++) {
+        const pt = curve.getPoint(l/SEG_L);
+        ePts.push(new THREE.Vector3(pt.x, pt.y, zCenter + zo));
+      }
+      const ec = new THREE.CatmullRomCurve3(ePts);
+      const em = new THREE.Mesh(new THREE.TubeGeometry(ec, 28, 0.014, 6, false), ropeMat);
+      em.castShadow = true;
+      scene.add(em);
+    });
+
+    // Gathering ropes: bundle at each end (fan from all widths → anchor)
+    const gatherMat = new THREE.MeshStandardMaterial({color:0xb8ac90, roughness:0.85});
+    [[leftX, mountH], [rightX, mountH]].forEach(([ax, ay], side) => {
+      const t_end = side === 0 ? 0 : 1;
+      const endPt = curve.getPoint(t_end);
+      for (let w = 0; w <= SEG_W; w+=2) {
+        const zo = (w/SEG_W - 0.5)*zWidth;
+        const gc = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(endPt.x + (side===0?-0.08:0.08), endPt.y + 0.12, zCenter + zo),
+          new THREE.Vector3(ax, ay + 0.04, zCenter + zo * 0.4),
+          new THREE.Vector3(ax, ay, zCenter),
+        ]);
+        scene.add(new THREE.Mesh(new THREE.TubeGeometry(gc, 6, 0.007, 5, false), gatherMat));
+      }
+    });
+
+    // Wall anchor bolts
+    const boltMat = new THREE.MeshStandardMaterial({color:0x888878, metalness:0.82, roughness:0.25});
+    const anchH  = mountH + 0.22;
+    const anchXL = CX * (anchH / H);
+    const anchXR = W - anchXL;
+    const wallAngle = Math.atan2(H, CX);
+    [[anchXL, wallAngle], [anchXR, -wallAngle]].forEach(([bx, ba]) => {
+      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.022, 0.10, 8), boltMat);
+      bolt.position.set(bx, anchH, zCenter);
+      bolt.rotation.z = ba - Math.PI/2;
+      bolt.castShadow = true;
+      scene.add(bolt);
+      // small plate
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.02), boltMat);
+      plate.position.set(bx - Math.cos(ba)*0.03, anchH, zCenter);
+      plate.rotation.z = ba - Math.PI/2;
+      scene.add(plate);
+    });
+
+    // Spreader rope from wall → gather point (main hanging lines)
+    [[anchXL, anchXR]].forEach(() => {});
+    const mainRopeMat = new THREE.MeshStandardMaterial({color:0xd4c8a8, roughness:0.82});
+    const mainL = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(anchXL, anchH, zCenter),
+      new THREE.Vector3(leftX + 0.05, mountH + 0.06, zCenter),
+      new THREE.Vector3(leftX,  mountH, zCenter),
+    ]);
+    const mainR = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(anchXR, anchH, zCenter),
+      new THREE.Vector3(rightX - 0.05, mountH + 0.06, zCenter),
+      new THREE.Vector3(rightX, mountH, zCenter),
+    ]);
+    [mainL, mainR].forEach(mc => {
+      scene.add(new THREE.Mesh(new THREE.TubeGeometry(mc, 8, 0.015, 6, false), mainRopeMat));
+    });
+  }
+
+  // Two hammocks in the big room
+  createHammock(1.10, 0.88, 0xc8a060);  // warm ochre/straw
+  createHammock(2.55, 0.88, 0xa09060);  // darker earthy
+
+  // ── Floor cushions between hammocks (Design B) ──
+  const FT2 = 0.04; // on bare floor
+  const bCushions = [
+    { x:0.48, z:1.88, ry:0.20,  w:0.72, h:0.20, d:0.72, color:0xb4c4a0 },
+    { x:1.46, z:1.82, ry:-0.10, w:0.78, h:0.22, d:0.78, color:0xa0b490 },
+    { x:2.44, z:1.92, ry:0.14,  w:0.70, h:0.20, d:0.70, color:0xb8c8a8 },
+    { x:0.60, z:2.10, ry:-0.18, w:0.65, h:0.18, d:0.65, color:0x9cacaa },
+    { x:2.30, z:2.15, ry:0.22,  w:0.68, h:0.19, d:0.68, color:0xa8b8a4 },
+    // bolsters
+    { x:1.00, z:0.55, ry:Math.PI/2, w:0.20, h:0.20, d:0.58, color:0xd4c8a0, round:true },
+    { x:1.92, z:0.58, ry:Math.PI/2, w:0.20, h:0.20, d:0.56, color:0xc8bca0, round:true },
+    { x:1.46, z:3.10, ry:0.05,  w:0.72, h:0.55, d:0.26, color:0xa8b8a0, wall:true },
+    { x:0.55, z:3.12, ry:0.08,  w:0.64, h:0.50, d:0.26, color:0xb0bca8, wall:true },
+    { x:2.38, z:3.10, ry:-0.06, w:0.64, h:0.50, d:0.26, color:0xa4b4a0, wall:true },
+  ];
+  bCushions.forEach(c => {
+    const mat2 = new THREE.MeshStandardMaterial({color:c.color, roughness:0.90});
+    if (c.round) {
+      const geo2 = new THREE.CylinderGeometry(c.h/2, c.h/2, c.d, 16);
+      const m2 = new THREE.Mesh(geo2, mat2);
+      m2.position.set(c.x, FT2 + c.h/2, c.z);
+      m2.rotation.z = Math.PI/2; m2.rotation.y = c.ry;
+      m2.castShadow = true; scene.add(m2);
+    } else if (c.wall) {
+      box(c.w, c.h, c.d, mat2, c.x, FT2+c.h/2, c.z - c.d/2, c.ry);
+    } else {
+      const m2 = box(c.w, c.h, c.d, mat2, c.x, FT2+c.h/2, c.z, c.ry);
+      // Cross seam on top
+      const sm2 = new THREE.MeshStandardMaterial({color:c.color-0x181818, roughness:0.95});
+      box(c.w-0.04, 0.010, 0.016, sm2, c.x, FT2+c.h+0.005, c.z, c.ry);
+      box(0.016, 0.010, c.d-0.04, sm2, c.x, FT2+c.h+0.005, c.z, c.ry);
+    }
+  });
+
+  // ── FOTEL BRAZYLIJKI (hanging egg/pod chair in small room) ──
+  {
+    const cx2 = CX + 0.15;       // slightly off-center
+    const cz2 = L1 + 1.35;       // middle of stair room
+    const hookH2 = H - 0.28;     // hang from near ridge ~2.65m
+    const topH   = hookH2 - 0.28; // top of chair ~2.37m
+    const midH   = topH   - 0.42; // bowl center ~1.95m
+
+    // Hook on ridge beam
+    const hookMat2 = new THREE.MeshStandardMaterial({color:0x808070, metalness:0.88, roughness:0.20});
+    const hookGeo2 = new THREE.TorusGeometry(0.045, 0.013, 8, 20, Math.PI * 1.6);
+    const hookM = new THREE.Mesh(hookGeo2, hookMat2);
+    hookM.position.set(cx2, hookH2 + 0.02, cz2);
+    hookM.rotation.x = Math.PI / 2;
+    hookM.castShadow = true;
+    scene.add(hookM);
+
+    // Hanging chain (3-strand braid visual via 3 thin tubes)
+    const chainMat2 = new THREE.MeshStandardMaterial({color:0xa09888, metalness:0.45, roughness:0.60});
+    for (let s = 0; s < 3; s++) {
+      const ang = (s / 3) * Math.PI * 2;
+      const ox = Math.cos(ang) * 0.018, oz = Math.sin(ang) * 0.018;
+      const cc = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(cx2 + ox, hookH2, cz2 + oz),
+        new THREE.Vector3(cx2 + ox * 0.5, (hookH2 + topH)*0.5, cz2 + oz * 0.5),
+        new THREE.Vector3(cx2, topH, cz2),
+      ]);
+      scene.add(new THREE.Mesh(new THREE.TubeGeometry(cc, 8, 0.008, 5, false), chainMat2));
+    }
+
+    // Spreader ring
+    const ringMat2 = new THREE.MeshStandardMaterial({color:0x808070, metalness:0.78, roughness:0.25});
+    const ringM = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.016, 10, 28), ringMat2);
+    ringM.position.set(cx2, topH, cz2);
+    ringM.rotation.x = Math.PI/2;
+    ringM.castShadow = true;
+    scene.add(ringM);
+
+    // 4 support cords from ring to bowl rim
+    const cordMat = new THREE.MeshStandardMaterial({color:0xc8b890, roughness:0.87});
+    for (let i = 0; i < 4; i++) {
+      const a = (i/4)*Math.PI*2 + Math.PI/4;
+      const rx = cx2 + Math.cos(a)*0.19, rz = cz2 + Math.sin(a)*0.19;
+      const bx = cx2 + Math.cos(a)*0.40, bz = cz2 + Math.sin(a)*0.40;
+      const cc2 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(rx, topH, rz),
+        new THREE.Vector3(bx, midH + 0.18, bz),
+      ]);
+      scene.add(new THREE.Mesh(new THREE.TubeGeometry(cc2, 5, 0.009, 5, false), cordMat));
+    }
+
+    // Bowl shell — flattened sphere open at top
+    const chairFabMat = new THREE.MeshStandardMaterial({
+      color: 0xc8a870, roughness:0.85, side:THREE.DoubleSide
+    });
+    const bowlGeo2 = new THREE.SphereGeometry(0.44, 22, 14, 0, Math.PI*2, 0.40, Math.PI*0.72);
+    const bowl2 = new THREE.Mesh(bowlGeo2, chairFabMat);
+    bowl2.position.set(cx2, midH, cz2);
+    bowl2.castShadow = true; bowl2.receiveShadow = true;
+    scene.add(bowl2);
+
+    // Inner seat pad
+    const seatMat = new THREE.MeshStandardMaterial({color:0xe0d0b0, roughness:0.96});
+    const seatGeo = new THREE.SphereGeometry(0.34, 16, 8, 0, Math.PI*2, 0.55, Math.PI*0.42);
+    const seat = new THREE.Mesh(seatGeo, seatMat);
+    seat.position.set(cx2, midH - 0.06, cz2);
+    seat.castShadow = true;
+    scene.add(seat);
+
+    // Back cushion in chair
+    const backMat = new THREE.MeshStandardMaterial({color:0xd4c4a0, roughness:0.93});
+    const backGeo = new THREE.SphereGeometry(0.26, 14, 8, 0, Math.PI*1.4, 0.38, Math.PI*0.38);
+    const back2 = new THREE.Mesh(backGeo, backMat);
+    back2.position.set(cx2, midH + 0.14, cz2 + 0.06);
+    back2.rotation.x = -0.3;
+    back2.castShadow = true;
+    scene.add(back2);
+
+    // Footrest cushion (small) below chair
+    box(0.28, 0.12, 0.28,
+      new THREE.MeshStandardMaterial({color:0xc8baa0, roughness:0.94}),
+      cx2 + 0.10, 0.06, cz2 + 0.42);
+
+    // Extra cushions around chair on floor
+    [
+      { x:cx2-0.70, z:cz2+0.30, ry:0.20,  w:0.62, h:0.18, d:0.62, color:0xb0c4a8 },
+      { x:cx2+0.55, z:cz2-0.25, ry:-0.25, w:0.58, h:0.17, d:0.58, color:0xa8bca0 },
+      { x:cx2-0.55, z:cz2-0.35, ry:0.15,  w:0.60, h:0.18, d:0.60, color:0xb8c8a8 },
+    ].forEach(c2 => {
+      const m3 = box(c2.w, c2.h, c2.d,
+        new THREE.MeshStandardMaterial({color:c2.color, roughness:0.90}),
+        c2.x, c2.h/2, c2.z, c2.ry);
+    });
+  }
+
+}); // end inGroup(groupB)
+
+// ─── DIMENSION LABELS ────────────────────────────────────────────────────
+label('292 cm', CX, -0.22, CX * 0.5);
+label('347 cm', -0.30, -0.22, L1 / 2);
+label('225 cm', -0.30, -0.22, L1 + L2 / 2);
+label('293 cm (szczyt)', -0.28, H / 2, -0.1);
+
+// ─── GROUND PLANE (outside) ───────────────────────────────────────────────
+{
+  const gMat = new THREE.MeshStandardMaterial({color: 0x88a880, roughness: 1});
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), gMat);
+  g.rotation.x = -Math.PI / 2;
+  g.position.set(CX, -0.01, LT / 2);
+  g.receiveShadow = true;
+  scene.add(g);
+}
+
+// ─── CAMERA PRESETS ──────────────────────────────────────────────────────
+const VIEWS = {
+  overview: { pos: [5.5, 4.0, 9.0],   target: [1.46, 1.1, 2.8] },
+  duzy:     { pos: [1.46, 2.2, 5.5],  target: [1.46, 1.0, 1.5] },
+  schody:   { pos: [1.46, 2.0, 9.5],  target: [1.46, 0.5, 5.2] },
+  top:      { pos: [1.46, 7.5, 2.9],  target: [1.46, 0.0, 2.9] },
+};
+
+function flyTo(preset) {
+  const v = VIEWS[preset];
+  const startPos = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const endPos = new THREE.Vector3(...v.pos);
+  const endTarget = new THREE.Vector3(...v.target);
+  let t = 0;
+  const dur = 80;
+  function step() {
+    t++;
+    const k = t / dur;
+    const ease = 1 - Math.pow(1 - k, 3);
+    camera.position.lerpVectors(startPos, endPos, ease);
+    controls.target.lerpVectors(startTarget, endTarget, ease);
+    controls.update();
+    if (t < dur) requestAnimationFrame(step);
+  }
+  step();
+}
+
+// ─── SHOPPING PANEL ──────────────────────────────────────────────────────
+document.getElementById('btn-shop').onclick = () => {
+  document.getElementById('shop-panel').classList.toggle('open');
+};
+document.getElementById('btn-shop-close').onclick = () => {
+  document.getElementById('shop-panel').classList.remove('open');
+};
+document.querySelectorAll('.sp-tab').forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll('.sp-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const t = tab.dataset.tab;
+    ['a','b','wspolne'].forEach(id => {
+      document.getElementById('sp-' + id).style.display = (id === t) ? '' : 'none';
+    });
+  };
+});
+
+// ─── DESIGN TOGGLE ───────────────────────────────────────────────────────
+document.getElementById('btn-da').onclick = () => {
+  groupA.visible = true;  groupB.visible = false;
+  document.getElementById('btn-da').classList.add('active');
+  document.getElementById('btn-db').classList.remove('active');
+  document.getElementById('info-a').style.display = '';
+  document.getElementById('info-b').style.display = 'none';
+  document.getElementById('leg-a').style.display = '';
+  document.getElementById('leg-b').style.display = 'none';
+};
+document.getElementById('btn-db').onclick = () => {
+  groupA.visible = false; groupB.visible = true;
+  document.getElementById('btn-db').classList.add('active');
+  document.getElementById('btn-da').classList.remove('active');
+  document.getElementById('info-a').style.display = 'none';
+  document.getElementById('info-b').style.display = '';
+  document.getElementById('leg-a').style.display = 'none';
+  document.getElementById('leg-b').style.display = '';
+};
+
+document.getElementById('btn-overview').onclick = () => flyTo('overview');
+document.getElementById('btn-duzy').onclick    = () => flyTo('duzy');
+document.getElementById('btn-schody').onclick  = () => flyTo('schody');
+document.getElementById('btn-top').onclick     = () => flyTo('top');
+
+// ─── RESIZE ──────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ─── ANIMATE ─────────────────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
